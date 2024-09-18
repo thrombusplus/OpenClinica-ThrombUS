@@ -20,7 +20,9 @@ import org.akaza.openclinica.web.InsufficientPermissionException;
 
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.IOException;
 import java.io.InputStream;
+import java.io.PrintWriter;
 import java.security.DigestInputStream;
 import java.security.MessageDigest;
 import java.text.MessageFormat;
@@ -29,25 +31,54 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+
+import javax.servlet.ServletException;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
 import javax.xml.bind.DatatypeConverter;
 
 public class UploadFileServlet extends SecureController {
     Locale locale;
+    String progressListenerField = "time";
     FileUploadHelper uploadHelper = new FileUploadHelper(new FileProperties(CoreResources.getField("crf.file.extensions"),
-            CoreResources.getField("crf.file.extensionSettings")));
+            CoreResources.getField("crf.file.extensionSettings")),true,this.progressListenerField);
 
     @Override
     protected void mayProceed() throws InsufficientPermissionException {
         locale = LocaleResolver.getLocale(request);
         if ("false".equals(session.getAttribute("mayProcessUploading"))) {
             addPageMessage(respage.getString("you_not_have_permission_upload_file"));
-            request.setAttribute("uploadFileStauts", "noPermission");
+            request.setAttribute("uploadFileStatus", "noPermission");
         }
         return;
     }
 
     @Override
     public void processRequest() throws Exception {
+    	if("get".equalsIgnoreCase(request.getMethod()) && request.getParameter(this.progressListenerField) != null) {
+    		// get upload time
+    		String time = request.getParameter(this.progressListenerField);
+    		//if(time != null) {
+    		// get progress
+    		// null: already finished
+    		Object o = request.getSession().getAttribute(time);
+    		String progress =  o == null? "100.0" : o+"";
+
+    		if (progress.startsWith("100")) { // just done
+    			request.getSession().removeAttribute(time);
+    		}
+    		// build response
+    		StringBuilder sb = new StringBuilder("");
+    		sb.append("{progress: {")
+    			.append(time).append(":").append(progress)
+    			.append("}}");
+    		System.out.println(sb.toString());
+    		PrintWriter out = response.getWriter();
+    		// response data
+    		out.println(sb.toString());
+    		out.close();
+    		//}
+    	}else {
         FormProcessor fp = new FormProcessor(request);
         HashMap<String, String> newUploadedFiles = (HashMap<String, String>) session.getAttribute("newUploadedFiles");
         if (newUploadedFiles == null) {
@@ -61,7 +92,7 @@ public class UploadFileServlet extends SecureController {
         } else {
             String dir = Utils.getAttachedFilePath(currentStudy);
             if (dir == null || dir.length() <= 0) {
-                request.setAttribute("uploadFileStauts", "failed");
+                request.setAttribute("uploadFileStatus", "failed");
                 this.forwardPage(Page.FILE_UPLOAD);
             } else {
                 if (!new File(dir).isDirectory()) {
@@ -110,7 +141,7 @@ public class UploadFileServlet extends SecureController {
                     }
                     session.setAttribute("newUploadedFiles", newUploadedFiles);
                 } catch (OpenClinicaSystemException e) {
-                	request.setAttribute("uploadFileStauts", "failed");
+                	request.setAttribute("uploadFileStatus", "failed");
                     MessageFormat mf = new MessageFormat("");
                     mf.applyPattern(respage.getString(e.getErrorCode()));
                     Object[] arguments = e.getErrorParams();
@@ -120,6 +151,7 @@ public class UploadFileServlet extends SecureController {
                 this.forwardPage(Page.FILE_UPLOAD);
             }
         }
+    	}
     }
 
     /*
