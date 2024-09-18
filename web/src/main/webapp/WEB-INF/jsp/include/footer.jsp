@@ -14,21 +14,16 @@
 <script type="text/javascript" src="${pageContext.request.contextPath}/includes/wz_tooltip/wz_tooltip.js"></script>
 <table border="0" cellpadding="0" width="100%"  >
             <tr>
-                <td class="footer_bottom" style="width:240px">
-                <a href="http://www.openclinica.com" target="new"><fmt:message key="openclinica_portal" bundle="${resword}"/></a>
-                |
-                <a href="javascript:openDocWindow('https://docs.openclinica.com')"><fmt:message key="help" bundle="${resword}"/></a>
-                |
-                <a href="javascript:openDocWindow('https://openclinica.com/openclinica-privacy-policy/may-2018/')"><fmt:message key="privacy" bundle="${resword}"/></a>
-                |
-           <%-->     <a href="${pageContext.request.contextPath}Contact"><fmt:message key="contact" bundle="${resword}"/></a>--%>
-             <a href="${pageContext.request.contextPath}/Contact"><fmt:message key="contact" bundle="${resword}"/></a>
-
+                <td class="footer_bottom" style="width:200px">
+                    <a href="https://thrombus.eu" target="new">ThrombUS+ Website</a>
+                    |
+                    <a href="javascript:openDocWindow('https://thrombus.eu/index.php/contact/')">Contact</a>
                 </td>
                 <td class="footer_bottom" >
-                <fmt:message key="footer.license.1" bundle="${licensing}"/>
-               <fmt:message key="footer.license.2" bundle="${licensing}"/>
-               <fmt:message key="footer.license.3" bundle="${licensing}"/></td>
+                    <fmt:message key="footer.license.1" bundle="${licensing}"/>
+                    <fmt:message key="footer.license.2" bundle="${licensing}"/>
+                    <fmt:message key="footer.license.3" bundle="${licensing}"/>
+                </td>
 
                 <td  class="footer_bottom" style="width:200px;">
                     <c:set var="tooltip"><fmt:message key="footer.tooltip" bundle="${licensing}"/></c:set>
@@ -38,16 +33,15 @@
                             <c:when test="${empty tooltip}">
                                 <span style="color: #789EC5;"  >
                                     <fmt:message key="footer.edition.2" bundle="${licensing}" />
-                                </span>
+                                </span> <fmt:message key="Version_release" bundle="${licensing}"/>
                             </c:when>
                             <c:otherwise>
                                 <span onmouseover="Tip('<fmt:message key="footer.tooltip" bundle="${licensing}"/>')" onmouseout="UnTip()" style="color: #789EC5;"  >
                                     <fmt:message key="footer.edition.2" bundle="${licensing}" />
-                                </span>
+                                </span> <fmt:message key="Version_release" bundle="${licensing}"/>
                             </c:otherwise>
                         </c:choose>
-                        </div>
-                     <div  id="version"></div><fmt:message key="Version_release" bundle="${licensing}"/> </div>
+                    </div>
                 </td>
             </tr>
         </table>
