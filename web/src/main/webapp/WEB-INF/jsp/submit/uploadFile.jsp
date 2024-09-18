@@ -16,7 +16,40 @@
 <link rel="stylesheet" href="includes/styles.css" type="text/css">
 
 <html>
+<script src="includes/jmesa/jquery.min.js"></script>
+		<style>
+			.frame {
+				position: absolute;
+				top: -9999px;
+				left: -9999px;
+			}
+			.progress-bar {
+			    position:absolute;
+			    width: 100%;
+				height: 20px;
+				display: none;
+				border: 2px solid green;
+			}
+			.progress {
+				background-color: blue;
+				height: 100%;
+				width: 0px;
+			}
+		</style>
 <script>
+	var progress;
+	
+	function upload() {
+		// avoid concurrent processing
+		if (progress) return;
+		var upform = document.getElementById('uploadForm'), time = new Date().getTime();
+		if(checkForm(upform)){
+			upform.action = 'UploadFile?time=' + time;
+			upform.submit();
+			startProgressbar(time);
+		}
+	}
+	
 	function processUpload(itemId,fileName,isGroupItem) {
 		var a = fileName;
 		var b = 'ft' + itemId;
@@ -35,13 +68,47 @@
 		f.value = "";
 		window.close();
 	}
+	
 	function checkForm(form) {
     var file_name = form.elements['file'].value;
-     if(file_name==''){
-	 alert ("Select a file to upload!");
-	 return false;}
+        if(file_name==''){
+	        alert ("Select a file to upload!");
+	        return false;
+	    }
 	 return true;
-}
+     }
+     
+     function startProgressbar(startTime) {
+				// display progress bar
+				$('.progress-bar').css('display', 'block');
+				// start timer
+				progress = setInterval(function () {
+					// ask progress
+					$.ajax({
+						type: "GET",
+						url: "UploadFile",
+						data: {time: startTime},
+						success: function (data, textStatus,jqXHR ) {
+							// get progress from response data
+							var d = eval('(' + data + ')'),
+								uploadprogress = parseInt(d.progress[startTime]);
+							// change progress width
+							$('.progress').css('width', uploadprogress+'%');
+							if (uploadprogress == 100) { // upload finished
+								// stop timer
+								clearInterval(progress);
+								setTimeout(function () {
+									// hide progress bar
+									$('.progress-bar').css('display', '');
+									$('.progress').css('width', '');
+									// clear timer variable
+									progress = null;
+								}, 1000);
+							}
+						}
+					})
+				}, 1000);
+			}
 
 </script>
 
@@ -53,7 +120,7 @@
 </c:forEach>
 </div>
 <br><br><br>
-<form name="uploadForm" action="UploadFile" method="post" enctype="multipart/form-data" onsubmit="return checkForm(this)">
+<form id="uploadForm" name="uploadForm" method="post" enctype="multipart/form-data">
 	<input type="hidden" name="itemId" value="${fn:escapeXml(fileItemId)}">
 	<input type="hidden" name="inputName" value="${fn:escapeXml(inputName)}">
 		<div style="position:absolute;  left:20px; width: 600px;">
@@ -83,8 +150,14 @@
 			<br><br>
 			<fmt:message key="select_cancel_upload_button" bundle="${restext}"/>
 			<br><br><br>
-			<input id="file" type="file" name="browse" size="60">
-			<P><input type="submit" name="upload" value="<fmt:message key="upload_file" bundle="${resword}"/>" class="button_long">
+			<input id="file" type="file" name="browse" size="150">
+			<br><br>
+			<!-- progress bar -->
+			<div class="progress-bar">
+				<div class="progress"></div>
+			</div>
+			<br><br>
+			<P><input type="button" onclick="upload()" value="<fmt:message key="upload_file" bundle="${resword}"/>" class="button_long">
 			<input type="button" name="cancel" value="<fmt:message key="cancel_upload" bundle="${resword}"/>" onClick="cleanFile()" class="button_long"></P>
 			<input type="hidden" name="crfId" value="<c:out value="${version.crfId}"/>">
 		</c:otherwise>
