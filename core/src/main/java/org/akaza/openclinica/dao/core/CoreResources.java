@@ -351,14 +351,14 @@ public class CoreResources implements ResourceLoaderAware {
         DATAINFO.setProperty("monitor", "Monitor");
         DATAINFO.setProperty("ccts.waitBeforeCommit", "6000");
 
-        String rss_url = DATAINFO.getProperty("rssUrl");
-        if (rss_url == null || rss_url.isEmpty())
-            rss_url = "http://blog.openclinica.com/feed/";
-        DATAINFO.setProperty("rss.url", rss_url);
-        String rss_more = DATAINFO.getProperty("rssMore");
-        if (rss_more == null || rss_more.isEmpty())
-            rss_more = "http://blog.openclinica.com/";
-        DATAINFO.setProperty("rss.more", rss_more);
+        //String rss_url = DATAINFO.getProperty("rssUrl");
+        //if (rss_url == null || rss_url.isEmpty())
+        //    rss_url = "http://blog.openclinica.com/feed/";
+        //DATAINFO.setProperty("rss.url", rss_url);
+        //String rss_more = DATAINFO.getProperty("rssMore");
+        //if (rss_more == null || rss_more.isEmpty())
+        //    rss_more = "http://blog.openclinica.com/";
+        //DATAINFO.setProperty("rss.more", rss_more);
 
         String supportURL = DATAINFO.getProperty("supportURL");
         if (supportURL == null || supportURL.isEmpty())
