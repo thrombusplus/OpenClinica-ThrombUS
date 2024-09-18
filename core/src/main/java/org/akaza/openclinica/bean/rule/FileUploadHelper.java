@@ -11,6 +11,7 @@ import org.akaza.openclinica.exception.OpenClinicaSystemException;
 import org.apache.commons.fileupload.FileItem;
 import org.apache.commons.fileupload.FileUploadBase.FileSizeLimitExceededException;
 import org.apache.commons.fileupload.FileUploadException;
+import org.apache.commons.fileupload.ProgressListener;
 import org.apache.commons.fileupload.disk.DiskFileItemFactory;
 import org.apache.commons.fileupload.servlet.ServletFileUpload;
 import org.slf4j.Logger;
@@ -24,132 +25,184 @@ import java.util.List;
 
 import javax.servlet.ServletContext;
 import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpSession;
 
 public class FileUploadHelper {
 
-    protected final Logger logger = LoggerFactory.getLogger(getClass().getName());
-    FileProperties fileProperties;
-    FileRenamePolicy fileRenamePolicy;
-    
+	protected final Logger logger = LoggerFactory.getLogger(getClass().getName());
+	FileProperties fileProperties;
+	FileRenamePolicy fileRenamePolicy;
+	boolean hasProgressListener = false;
+	String progressListenerField = "";
 
-    public FileUploadHelper() {
-        fileProperties = new FileProperties();
+	public FileUploadHelper() {
+		fileProperties = new FileProperties();
 	}
 
-    public FileUploadHelper(FileProperties fileProperties) {
-        super();
-        this.fileProperties = fileProperties;
-    }
+	public FileUploadHelper(FileProperties fileProperties) {
+		super();
+		this.fileProperties = fileProperties;
+	}
+	
+	public FileUploadHelper(FileProperties fileProperties, boolean hasProgressListener, String progressListenerField) {
+		super();
+		this.fileProperties = fileProperties;
+		this.hasProgressListener = hasProgressListener;
+		if(progressListenerField != null && !progressListenerField.isEmpty()) {
+			this.progressListenerField = progressListenerField;
+		}
+	}
 
-    public List<File> returnFiles(HttpServletRequest request, ServletContext context) {
+	public List<File> returnFiles(HttpServletRequest request, ServletContext context) {
 
-        // Check that we have a file upload request
-        boolean isMultipart = ServletFileUpload.isMultipartContent(request);
-        return isMultipart ? getFiles(request, context, null) : new ArrayList<File>();
-    }
+		// Check that we have a file upload request
+		boolean isMultipart = ServletFileUpload.isMultipartContent(request);
+		return isMultipart ? getFiles(request, context, null) : new ArrayList<File>();
+	}
 
-    public List<File> returnFiles(HttpServletRequest request, ServletContext context, FileRenamePolicy fileRenamePolicy) {
+	public List<File> returnFiles(HttpServletRequest request, ServletContext context, FileRenamePolicy fileRenamePolicy) {
 
-        // Check that we have a file upload request
-        this.fileRenamePolicy = fileRenamePolicy;
-        boolean isMultipart = ServletFileUpload.isMultipartContent(request);
-        return isMultipart ? getFiles(request, context, null) : new ArrayList<File>();
-    }
+		// Check that we have a file upload request
+		this.fileRenamePolicy = fileRenamePolicy;
+		boolean isMultipart = ServletFileUpload.isMultipartContent(request);
+		return isMultipart ? getFiles(request, context, null) : new ArrayList<File>();
+	}
 
-    public List<File> returnFiles(HttpServletRequest request, ServletContext context, String dirToSaveUploadedFileIn, FileRenamePolicy fileRenamePolicy) {
+	public List<File> returnFiles(HttpServletRequest request, ServletContext context, String dirToSaveUploadedFileIn, FileRenamePolicy fileRenamePolicy) {
 
-        // Check that we have a file upload request
-        this.fileRenamePolicy = fileRenamePolicy;
-        boolean isMultipart = ServletFileUpload.isMultipartContent(request);
-        return isMultipart ? getFiles(request, context, createDirectoryIfDoesntExist(dirToSaveUploadedFileIn)) : new ArrayList<File>();
-    }
+		// Check that we have a file upload request
+		this.fileRenamePolicy = fileRenamePolicy;
+		boolean isMultipart = ServletFileUpload.isMultipartContent(request);
+		return isMultipart ? getFiles(request, context, createDirectoryIfDoesntExist(dirToSaveUploadedFileIn)) : new ArrayList<File>();
+	}
 
-    public List<File> returnFiles(HttpServletRequest request, ServletContext context, String dirToSaveUploadedFileIn) {
+	public List<File> returnFiles(HttpServletRequest request, ServletContext context, String dirToSaveUploadedFileIn) {
 
-        // Check that we have a file upload request
-        boolean isMultipart = ServletFileUpload.isMultipartContent(request);
-        return isMultipart ? getFiles(request, context, createDirectoryIfDoesntExist(dirToSaveUploadedFileIn)) : new ArrayList<File>();
-    }
+		// Check that we have a file upload request
+		boolean isMultipart = ServletFileUpload.isMultipartContent(request);
+		return isMultipart ? getFiles(request, context, createDirectoryIfDoesntExist(dirToSaveUploadedFileIn)) : new ArrayList<File>();
+	}
 
-    @SuppressWarnings("unchecked")
-    private List<File> getFiles(HttpServletRequest request, ServletContext context, String dirToSaveUploadedFileIn) {
-        List<File> files = new ArrayList<File>();
+	@SuppressWarnings("unchecked")
+	private List<File> getFiles(HttpServletRequest request, ServletContext context, String dirToSaveUploadedFileIn) {
+		List<File> files = new ArrayList<File>();
 
-        // FileCleaningTracker fileCleaningTracker =
-        // FileCleanerCleanup.getFileCleaningTracker(context);
+		// FileCleaningTracker fileCleaningTracker =
+		// FileCleanerCleanup.getFileCleaningTracker(context);
 
-        // Create a factory for disk-based file items
-        DiskFileItemFactory factory = new DiskFileItemFactory();
+		// Create a factory for disk-based file items
+		DiskFileItemFactory factory = new DiskFileItemFactory();
 
-        // Create a new file upload handler
-        ServletFileUpload upload = new ServletFileUpload(factory);
-        upload.setFileSizeMax(getFileProperties().getFileSizeMax());
-        try {
-            // Parse the request
-            List<FileItem> items = upload.parseRequest(request);
-            // Process the uploaded items
+		// Create a new file upload handler
+		ServletFileUpload upload = new ServletFileUpload(factory);
+		upload.setFileSizeMax(getFileProperties().getFileSizeMax());
 
-            Iterator<FileItem> iter = items.iterator();
-            while (iter.hasNext()) {
-                FileItem item = iter.next();
+		//Set a progress listener
+		if(this.hasProgressListener && !this.progressListenerField.isEmpty()) {
+			String time = request.getParameter(this.progressListenerField);
+			upload.setProgressListener(getProgressListener(time, request.getSession()));
+		}
 
-                if (item.isFormField()) {
-                    request.setAttribute(item.getFieldName(), item.getString());
-                    // DO NOTHING , THIS SHOULD NOT BE Handled here
-                } else {
-                    getFileProperties().isValidExtension(item.getName());
-                	files.add(processUploadedFile(item, dirToSaveUploadedFileIn));
-                		
-                }
-            }
-            return files;
-        }catch (FileSizeLimitExceededException slee) {
-            throw new OpenClinicaSystemException("exceeds_permitted_file_size", new Object[] { String.valueOf(getFileProperties().getFileSizeMaxInMb()) },
-                    slee.getMessage());
+		try {
+			// Parse the request
+			List<FileItem> items = upload.parseRequest(request);
+			// Process the uploaded items
+
+			Iterator<FileItem> iter = items.iterator();
+			while (iter.hasNext()) {
+				FileItem item = iter.next();
+
+				if (item.isFormField()) {
+					request.setAttribute(item.getFieldName(), item.getString());
+					// DO NOTHING , THIS SHOULD NOT BE Handled here
+				} else {
+					getFileProperties().isValidExtension(item.getName());
+					files.add(processUploadedFile(item, dirToSaveUploadedFileIn));
+
+				}
+			}
+			return files;
+		}catch (FileSizeLimitExceededException slee) {
+			throw new OpenClinicaSystemException("exceeds_permitted_file_size", new Object[] { String.valueOf(getFileProperties().getFileSizeMaxInMb()) },
+					slee.getMessage());
 		}catch (FileUploadException fue) {
-            throw new OpenClinicaSystemException("file_upload_error_occured", new Object[] { fue.getMessage() }, fue.getMessage());
-        }
-    }
+			//add to support progress listener
+			if(this.hasProgressListener && !this.progressListenerField.isEmpty()) {
+				request.getSession().removeAttribute(request.getParameter(this.progressListenerField));
+			}
+			
+			throw new OpenClinicaSystemException("file_upload_error_occured", new Object[] { fue.getMessage() }, fue.getMessage());
+		}
+	}
 
-    private File processUploadedFile(FileItem item, String dirToSaveUploadedFileIn) {
-        dirToSaveUploadedFileIn = dirToSaveUploadedFileIn == null ? System.getProperty("java.io.tmpdir") : dirToSaveUploadedFileIn;
-        String fileName = item.getName();
-        // Some browsers IE 6,7 getName returns the whole path
-        int startIndex = fileName.lastIndexOf('\\');
-        if (startIndex != -1) {
-            fileName = fileName.substring(startIndex + 1, fileName.length());
-        }
+	private File processUploadedFile(FileItem item, String dirToSaveUploadedFileIn) {
+		dirToSaveUploadedFileIn = dirToSaveUploadedFileIn == null ? System.getProperty("java.io.tmpdir") : dirToSaveUploadedFileIn;
+		String fileName = item.getName();
+		// Some browsers IE 6,7 getName returns the whole path
+		int startIndex = fileName.lastIndexOf('\\');
+		if (startIndex != -1) {
+			fileName = fileName.substring(startIndex + 1, fileName.length());
+		}
 
-        File uploadedFile = new File(dirToSaveUploadedFileIn + File.separator + fileName);
-        if (fileRenamePolicy != null) {
-        	try {
-        		uploadedFile = fileRenamePolicy.rename(uploadedFile, item.getInputStream());
-        	} catch (IOException e) {
-        		throw new OpenClinicaSystemException(e.getMessage());
-        	}
-        }
-        try {
+		File uploadedFile = new File(dirToSaveUploadedFileIn + File.separator + fileName);
+		if (fileRenamePolicy != null) {
+			try {
+				uploadedFile = fileRenamePolicy.rename(uploadedFile, item.getInputStream());
+			} catch (IOException e) {
+				throw new OpenClinicaSystemException(e.getMessage());
+			}
+		}
+		try {
 			item.write(uploadedFile);
 		} catch (Exception e) {
 			throw new OpenClinicaSystemException(e.getMessage());
 		}
-        return uploadedFile;
+		return uploadedFile;
 
-    }
+	}
 
-    private String createDirectoryIfDoesntExist(String theDir) {
-        if (!new File(theDir).isDirectory()) {
-            new File(theDir).mkdirs();
-        }
-        return new File(theDir).toString();
-    }
+	private String createDirectoryIfDoesntExist(String theDir) {
+		if (!new File(theDir).isDirectory()) {
+			new File(theDir).mkdirs();
+		}
+		return new File(theDir).toString();
+	}
 
-    public FileProperties getFileProperties() {
-        return fileProperties;
-    }
+	public FileProperties getFileProperties() {
+		return fileProperties;
+	}
 
-    public void setFileProperties(FileProperties fileProperties) {
-        this.fileProperties = fileProperties;
-    }
+	public void setFileProperties(FileProperties fileProperties) {
+		this.fileProperties = fileProperties;
+	}
+	
+	// progress listener
+	// put progress into session with the given id
+	private ProgressListener getProgressListener (String id, HttpSession sess) {
+		//Create a progress listener
+		ProgressListener progressListener = new ProgressListener(){
+			//private long megaBytes = -1;
+			public void update(long bytesRead, long contentLength, int items) {
+				//long mBytes = bytesRead / 1000000;
+				//if (megaBytes == mBytes) {
+				//	return;
+				//}
+				//megaBytes = mBytes;
+				
+				
+				// put progress into session
+				sess.setAttribute(id, ((double)bytesRead / (double)contentLength) * 100);
+				
+				//// for testing only
+				//System.out.println("We are currently reading item " + items);
+				//if (contentLength == -1) {
+				//	System.out.println("So far, " + bytesRead + " bytes have been read.");
+				//} else {
+				//	System.out.println("So far, " + bytesRead + " of " + contentLength + " bytes have been read.");
+				//}
+			}
+		};
+		return progressListener;
+	}
 
 }
